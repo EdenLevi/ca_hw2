@@ -62,7 +62,7 @@ public:
             }
         }
 
-        if(L1SetsNum > 0) L2 = new std::list<block>[L2SetsNum];
+        if(L2SetsNum > 0) L2 = new std::list<block>[L2SetsNum];
 
         for(int i = 0; i < L2SetsNum; i++) {
             for(int j = 0; j < L2Ways; j++) {
@@ -75,15 +75,42 @@ public:
 
     unsigned int getTagFromAddress(long unsigned int address, bool isL1) {
         int tagSize = isL1 ? L1tagSize : L2tagSize;
+        /*(int tag = (address >> BSize) >> (pow(2, BSize) - );
+
+        int offset_size_bits = BSize; // BlockSizeBits
+        int Size, Assoc, BlockSizeBits;
+        if(isL1) {
+            Size =
+        }
+        int set_field_size_bits = Size - Assoc - BlockSizeBits;
+
+        int tag = (address >> offset_size_bits) >> set_field_size_bits;*/
+        cout << tagSize << endl;
         return (address >> (32-tagSize));
     }
 
     unsigned int getSetFromAddress(long unsigned int address, bool isL1) {
-        int andByBits = log2(isL1 ? L1SetsNum : L2SetsNum);
+
+        cout << "I am trying to get set from address: " << address << endl;
+        int set = address >> BSize;
+        int setBits = 32 - ((isL1 ? L1tagSize : L2tagSize) + BSize);
+        int mask = pow(2, setBits) - 1;
+        set = set && mask;
+        cout << "The set I got is: " << set << endl;
+        return set;
+
+
+        /*int andByBits = log2(isL1 ? L1SetsNum : L2SetsNum);
         if(andByBits == 0) return 0; // if there is no Set Bit
-        int set = address >> (BSize+2);
+        int set = address >> (BSize);
         int mask = andByBits - 1;
-        return (set & mask);
+        return (set & mask);*/
+
+
+
+        //int bits = isL1 ? log2(L1SetsNum) : log2(L2SetsNum);
+        //return ((address >> BSize) % (1 << bits));
+
     }
 
     void addBlock(unsigned int address, unsigned int tag, unsigned int set, bool isL1) {
@@ -93,7 +120,7 @@ public:
         /// if there is any empty space, find the lowest way that is empty
         for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
             if(!it->validBit) {
-                cout << "adding block to empty way_" << it->way << endl;
+                cout << "adding block to empty way_" << it->way << " in " << (isL1 ? "L1" : "L2") << endl;
                 it->address = address;
                 it->tag = tag;
                 it->validBit = true;
@@ -116,16 +143,6 @@ public:
         useBlock(tag, set, isL1);
     }
 
-    bool thereIsEmptySpot(unsigned int tag, unsigned int set, bool isL1) {
-        /// if there is any empty space, find the lowest way that is empty
-        std::list<block> * blockList = isL1 ? L1 : L2;
-        for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
-            if(it->tag == -1) {
-                return true;
-            }
-        }
-        return false;
-    }
 
 
     void read(long unsigned int address) {
@@ -196,10 +213,14 @@ public:
             L2access++;
             totalTime += L2Cyc;
             if(isBlockInCache(tagL2, setL2, false)) { // if hit in L2
+                cout << "hit L2" << endl;
+
                 useBlock(tagL2, setL2, false);
                 if(writeAlloc) addBlock(address, tagL1, setL1, true); // bring to L1 also
             }
             else { // if miss on L2
+                cout << "miss L2" << endl;
+
                 L2misses++;
                 totalTime += MemCyc;
                 if(writeAlloc) addBlock(address, tagL2, setL2, false); // bring block from mem to L2
@@ -216,8 +237,8 @@ public:
             if(it->validBit && it->tag == tag) { // found the block we wanted
                 unsigned int way = it->way;
                 unsigned long int address = it->address;
-                blockList->erase(it);
-                blockList->emplace_front(true, false, address, tag, way);
+                blockList[set].erase(it);
+                blockList[set].emplace_front(true, false, address, tag, way);
                 return;
             }
         }
@@ -225,8 +246,8 @@ public:
 
     bool isBlockInCache(unsigned int tag, unsigned int set, bool isL1) {
         std::list<block>* blockList = isL1 ? L1 : L2;
-        for (auto block : blockList[set]) {
-            if(block.validBit && tag == block.tag) {
+        for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
+            if(it->validBit && tag == it->tag) {
                 return true;
             }
         }
@@ -301,19 +322,45 @@ int main(int argc, char **argv) {
         }
     }
 
+    cout << "we are here" << endl;
+
     int L1Ways = pow(2, L1Assoc); // assoc = log2 (# of ways)
     int L2Ways = pow(2, L2Assoc); // assoc = log2 (# of ways)
     // sets = blocks / ways
     // blocks = cache_size / block_size
+    cout << "got " << L1Ways << " L1Ways" << endl;
+    cout << "got " << L2Ways << " L2Ways" << endl;
+
     int L1BlocksNum = pow(2, L1Size) / pow(2, BSize);
     int L2BlocksNum = pow(2, L2Size) / pow(2, BSize);
+    cout << "got " << L1BlocksNum << " L1BlocksNum" << endl;
+    cout << "got " << L2BlocksNum << " L2BlocksNum" << endl;
+
     int L1SetsNum = L1BlocksNum / L1Ways;
     int L2SetsNum = L2BlocksNum / L2Ways;
+    cout << "got " << L1SetsNum << " L1SetsNum" << endl;
+    cout << "got " << L2SetsNum << " L2SetsNum" << endl;
 
-    int L1tagSize = 32 - (log2(L1SetsNum) + BSize + 2);
-    int L2tagSize = 32 - (log2(L2SetsNum) + BSize + 2);
+   // int L1SetsNum = L1Size - L1Assoc - BSize;
+   // int L2SetsNum = L2Size - L2Assoc - BSize;
 
-    cout << "block offset size: " << BSize+2 << ", L1 set size: " << log2(L1SetsNum) << ", L2 set size: " << log2(L2SetsNum) << ", L1 tag size:" << L1tagSize << ", L2 tag size:" << L2tagSize << endl;
+    int L1tagSize = 32 - ((log2(L1SetsNum) + BSize)) ;
+    int L2tagSize = 32 - ((log2(L2SetsNum) + BSize)) ;
+    cout << "got " << L1tagSize << " L1tagSize" << endl;
+    cout << "got " << L2tagSize << " L2tagSize" << endl;
+    //int L1tagSize = 32 - BSize - L1SetsNum;
+    //int L2tagSize = 32 - BSize - L2SetsNum;
+
+    //int numOfBlocksL1_inBits = L1Size - BSize;
+    //int numOfSetsL1_inBits = numOfBlocksL1_inBits - L1Assoc;
+    //int numOfBlocksL2_inBits = L2Size - BSize;
+    //int numOfSetsL2_inBits = numOfBlocksL2_inBits - L1Assoc;
+
+   // L1tagSize = 32 - numOfSetsL1_inBits - BSize;
+   // L2tagSize = 32 - numOfSetsL2_inBits - BSize;
+
+
+    cout << "block offset size: " << BSize << ", L1 set size: " << log2(L1SetsNum) << ", L2 set size: " << log2(L2SetsNum) << ", L1 tag size:" << L1tagSize << ", L2 tag size:" << L2tagSize << endl;
 
     cout << "L1Ways: " << L1Ways << ", L2Ways: " << L2Ways << ", L2SetsNum: " << L1SetsNum << ", L2SetsNum: " << L2SetsNum << endl;
 
@@ -348,6 +395,36 @@ int main(int argc, char **argv) {
         if(operation == 'r') Cache.read(num);
         else if(operation == 'w') Cache.write(num, WrAlloc);
         cmdCounter++;
+
+
+        // DEBUG STUFF
+        cout << "L1:" << endl;
+        for(int i = 0; i < L1SetsNum; i++){
+            for (std::list<block>::iterator it = Cache.L1[i].begin(); it != Cache.L1[i].end(); it++) {
+                if(it->validBit){
+                    cout << it->tag << " " ;
+                }
+                else{
+                    cout << "INVALID" << " " ;
+                }
+            }
+            cout << endl;
+        }
+        cout << endl;
+
+        cout << "L2:" << endl;
+        for(int i = 0; i < L2SetsNum; i++){
+            for (std::list<block>::iterator it = Cache.L2[i].begin(); it != Cache.L2[i].end(); it++) {
+                if(it->validBit){
+                    cout << it->tag << " " ;
+                }
+                else{
+                    cout << "INVALID" << " " ;
+                }
+            }
+            cout << endl;
+        }
+        cout << endl;
 
     }
 
