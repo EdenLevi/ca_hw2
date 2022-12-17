@@ -20,9 +20,10 @@ class block {
 public:
     bool validBit;
     bool dirtyBit;
+    unsigned int address;
     unsigned int tag;
     unsigned int way;
-    block(bool validBit, bool dirtyBit, unsigned int tag, unsigned int way) : validBit(validBit), dirtyBit(dirtyBit), tag(tag), way(way) {};
+    block(bool validBit, bool dirtyBit, unsigned int address, unsigned int tag, unsigned int way) : validBit(validBit), dirtyBit(dirtyBit), address(address), tag(tag), way(way) {};
 };
 
 class cache {
@@ -57,7 +58,7 @@ public:
 
         for(int i = 0; i < L1SetsNum; i++) {
             for(int j = 0; j < L1Ways; j++) {
-                L1[i].emplace_back(false, false, 0, j);
+                L1[i].emplace_back(false, false, 0, 0, j);
             }
         }
 
@@ -65,7 +66,7 @@ public:
 
         for(int i = 0; i < L2SetsNum; i++) {
             for(int j = 0; j < L2Ways; j++) {
-                L2[i].emplace_back(false, false, 0, j);
+                L2[i].emplace_back(false, false, 0, 0, j);
             }
         }
     }
@@ -85,14 +86,15 @@ public:
         return (set & mask);
     }
 
-    void addBlock(unsigned int tag, unsigned int set, bool isL1) {
+    void addBlock(unsigned int address, unsigned int tag, unsigned int set, bool isL1) {
 
         std::list<block>* blockList = isL1 ? L1 : L2;
 
         /// if there is any empty space, find the lowest way that is empty
-        for (std::list<block>::iterator it = blockList->begin(); it != blockList->end(); it++) {
+        for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
             if(!it->validBit) {
                 cout << "adding block to empty way_" << it->way << endl;
+                it->address = address;
                 it->tag = tag;
                 it->validBit = true;
                 useBlock(tag, set, isL1);
@@ -101,14 +103,14 @@ public:
         }
 
         /// if there is no empty space, remove the LRU (last block in list) and add it to the front
-        std::list<block>::iterator it = --blockList->end();
+        std::list<block>::iterator it = --(blockList[set].end());
         cout << "writing block over way_" << it->way << endl;
 
-        if(!isL1) { // if in L2
-            removeBlock(it->tag, set, ) // need to remove from L1 based on its L1tag
+        if(!isL1) { // if we are removing from L2, make sure block is removed from L1 (if exists there)
+            removeBlock(getTagFromAddress(it->address, true), getSetFromAddress(it->address, true), true);
         }
 
-
+        it->address = address;
         it->tag = tag;
         it->validBit = true;
         useBlock(tag, set, isL1);
@@ -117,7 +119,7 @@ public:
     bool thereIsEmptySpot(unsigned int tag, unsigned int set, bool isL1) {
         /// if there is any empty space, find the lowest way that is empty
         std::list<block> * blockList = isL1 ? L1 : L2;
-        for (std::list<block>::iterator it = blockList->begin(); it != blockList->end(); it++) {
+        for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
             if(it->tag == -1) {
                 return true;
             }
@@ -126,22 +128,47 @@ public:
     }
 
 
-    void bringBlockFromMem(unsigned int tagL1, unsigned int setL1, unsigned int tagL2, unsigned int setL2) {
-        if(thereIsEmptySpot(tagL2, setL2, false)) { // checking if there is empty space in L2
-            // just add
+    void read(long unsigned int address) {
+
+        unsigned int tagL1 = getTagFromAddress(address, true);
+        unsigned int setL1 = getSetFromAddress(address, true);
+        unsigned int tagL2 = getTagFromAddress(address, false);
+        unsigned int setL2 = getSetFromAddress(address, false);
+
+        cout << "tagL1 " << tagL1 << endl;
+        cout << "setL1 " << setL1 << endl;
+
+        L1access++;
+        totalTime += L1Cyc;
+        if(isBlockInCache(tagL1, setL1, true)) { // if hit in L1
+            cout << "hit L1" << endl;
+            useBlock(tagL1, setL1, true);
         }
-        else {
-            // remove least recently used
-            // check if it was in L1
-            if(isBlockInCache(tagL1, setL1, true)) {
-                // remove block from L1
-                removeBlock(tagL1, setL1, true);
+        else { // if miss on L1
+            cout << "miss L1" << endl;
+            L1misses++;
+            L2access++;
+            totalTime += L2Cyc;
+
+            cout << "tagL2 " << tagL2 << endl;
+            cout << "setL2 " << setL2 << endl;
+
+            if(isBlockInCache(tagL2, setL2, false)) { // if hit in L2
+
+                cout << "hit L2" << endl;
+
+                useBlock(tagL2, setL2, false);
+                addBlock(address, tagL1, setL1, true); // bring to L1 also
+                /// maybe need another L1 cycle? for bringing from L2 to L1
+            }
+            else { // if miss on L2
+                cout << "miss L2" << endl;
+                L2misses++;
+                totalTime += MemCyc;
+                addBlock(address, tagL2, setL2, false); // bring block from mem to L2
+                addBlock(address, tagL1, setL1, true); // bring block from mem to L1
             }
         }
-    }
-
-
-    void read(long unsigned int address, bool isL1) {
 
     }
 
@@ -152,41 +179,72 @@ public:
         unsigned int tagL2 = getTagFromAddress(address, false);
         unsigned int setL2 = getSetFromAddress(address, false);
 
-        if(writeAlloc) {
-            L1access++;
-            totalTime += L1Cyc;
-            if(isBlockInCacheL1(tagL1, setL1)) { // if hit in L1
-                useBlock(tagL1, setL1, true);
-            }
-            else { // if miss on L1
-                L1misses++;
-                L2access++;
-                totalTime += L2Cyc;
-                if(isBlockInCacheL2(tagL2, setL2)) { // if hit in L2
-                    useBlock(tagL2, setL2, false);
-                }
-                else {
-                    L2misses++;
-                    totalTime += MemCyc;
-                    bringBlockFromMem(tagL1, setL1, tagL2, setL2);
-                }
-            }
-        }
-        else {
+        cout << "tagL1 " << tagL1 << endl;
+        cout << "setL1 " << setL1 << endl;
 
+        L1access++;
+        totalTime += L1Cyc;
+        if(isBlockInCache(tagL1, setL1, true)) { // if hit in L1
+            useBlock(tagL1, setL1, true);
+            cout << "hit L1" << endl;
+        }
+        else { // if miss on L1
+
+            cout << "miss L1" << endl;
+
+            L1misses++;
+            L2access++;
+            totalTime += L2Cyc;
+            if(isBlockInCache(tagL2, setL2, false)) { // if hit in L2
+                useBlock(tagL2, setL2, false);
+                if(writeAlloc) addBlock(address, tagL1, setL1, true); // bring to L1 also
+            }
+            else { // if miss on L2
+                L2misses++;
+                totalTime += MemCyc;
+                if(writeAlloc) addBlock(address, tagL2, setL2, false); // bring block from mem to L2
+                if(writeAlloc) addBlock(address, tagL1, setL1, true); // bring block from mem to L1
+            }
         }
     }
 
     void useBlock(unsigned int tag, unsigned int set, bool isL1) {
 
+        std::list<block>* blockList = isL1 ? L1 : L2;
+
+        for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
+            if(it->validBit && it->tag == tag) { // found the block we wanted
+                unsigned int way = it->way;
+                unsigned long int address = it->address;
+                blockList->erase(it);
+                blockList->emplace_front(true, false, address, tag, way);
+                return;
+            }
+        }
     }
 
     bool isBlockInCache(unsigned int tag, unsigned int set, bool isL1) {
-
+        std::list<block>* blockList = isL1 ? L1 : L2;
+        for (auto block : blockList[set]) {
+            if(block.validBit && tag == block.tag) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void removeBlock(unsigned int tag, unsigned int set, bool isL1) {
         if(!isBlockInCache(tag, set, isL1)) return;
+        std::list<block>* blockList = isL1 ? L1 : L2;
+
+        for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
+            if(it->validBit && it->tag == tag) { // found the block we wanted
+                it->tag = 0;
+                it->address = 0;
+                it->validBit = false;
+                return;
+            }
+        }
 
     }
 
@@ -259,8 +317,9 @@ int main(int argc, char **argv) {
 
     cout << "L1Ways: " << L1Ways << ", L2Ways: " << L2Ways << ", L2SetsNum: " << L1SetsNum << ", L2SetsNum: " << L2SetsNum << endl;
 
+    cache Cache(L1Cyc, L2Cyc, MemCyc, BSize, L1SetsNum, L1Ways, L2SetsNum, L2Ways, L1BlocksNum, L2BlocksNum, L1tagSize, L2tagSize);
 
-
+    int cmdCounter = 0;
     while (getline(file, line)) {
 
         stringstream ss(line);
@@ -286,11 +345,15 @@ int main(int argc, char **argv) {
         // DEBUG - remove this line
         cout << " (dec) " << num << endl;
 
+        if(operation == 'r') Cache.read(num);
+        else if(operation == 'w') Cache.write(num, WrAlloc);
+        cmdCounter++;
+
     }
 
-    double L1MissRate;
-    double L2MissRate;
-    double avgAccTime;
+    double L1MissRate = (double)Cache.L1misses/Cache.L1access;
+    double L2MissRate = (double)Cache.L2misses/Cache.L2access;
+    double avgAccTime = (double)Cache.totalTime/cmdCounter;
 
     printf("L1miss=%.03f ", L1MissRate);
     printf("L2miss=%.03f ", L2MissRate);
