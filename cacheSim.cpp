@@ -137,6 +137,11 @@ public:
             removeBlock(getTagFromAddress(it->address, true), getSetFromAddress(it->address, true), true);
         }
 
+        else{ // we in L1, if block has
+            if(it->dirtyBit){
+                useBlock(getTagFromAddress(address,false), getSetFromAddress(address, false),false,false);
+            }
+        }
         it->address = address;
         it->tag = tag;
         it->validBit = true;
