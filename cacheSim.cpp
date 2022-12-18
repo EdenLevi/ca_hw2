@@ -244,7 +244,7 @@ public:
                 unsigned long int address = it->address;
                 bool previousDirtyBit = it->dirtyBit;
                 blockList[set].erase(it);
-                blockList[set].emplace_front(true, (isWrite || previousDirtyBit), address, tag, way);
+                blockList[set].emplace_front(true, (isWrite | previousDirtyBit), address, tag, way);
                 return;
             }
         }
@@ -253,17 +253,7 @@ public:
     bool isBlockInCache(unsigned int tag, unsigned int set, bool isL1) {
         std::list<block>* blockList = isL1 ? L1 : L2;
         int SetsNum = isL1 ? L1SetsNum : L2SetsNum;
-        for(int i = 0; i < SetsNum; i++) {
-            for (std::list<block>::iterator it = blockList[i].begin(); it != blockList[i].end(); it++) {
-                if (it->validBit) {
-                    cout << it->tag << " ";
-                } else {
-                  ;//  cout << "INVALID" << " ";
-                }
-            }
-           ;// cout << endl;
-        }
-           //;// cout << endl;
+
         for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
             if(it->validBit && tag == it->tag) {
                 return true;
