@@ -96,8 +96,6 @@ public:
         int set = address >> BSize;
         int mask = isL1 ? L1SetsNum : L2SetsNum;
         set = set % mask;
-        //int mask = pow(2, setBits) - 1;
-        //set = set && mask;
         cout << "The set I got is: " << set << endl;
         return set;
 
