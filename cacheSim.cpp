@@ -44,15 +44,16 @@ public:
     int L2Ways;
     int L1BlocksNum;
     int L2BlocksNum;
-    int L1SetsNum;
-    int L2SetsNum;
+
     int L1tagSize;
     int L2tagSize;
+    int L1SetsNum;
+    int L2SetsNum;
 
 
-    cache(int L1Cyc, int L2Cyc, int MemCyc, int BSize, int L1SetsNum, int L1Ways, int L2SetsNum, int L2Ways, int L1BlocksNum, int L2BlocksNum, int L1tagSize, int L2tagSize)
+    cache(int L1Cyc, int L2Cyc, int MemCyc, int BSize, int L1Ways,  int L2Ways, int L1BlocksNum, int L2BlocksNum, int L1tagSize, int L2tagSize, int L1SetsNum, int L2SetsNum)
     : L1(nullptr), L2(nullptr), L1Cyc(L1Cyc), L2Cyc(L2Cyc), MemCyc(MemCyc), totalTime(0), L1misses(0), L1access(0), L2misses(0), L2access(0), BSize(BSize), L1Ways(L1Ways), L2Ways(L2Ways),
-    L1BlocksNum(L1BlocksNum), L2BlocksNum(L2BlocksNum), L1SetsNum(L1SetsNum), L2SetsNum(L2SetsNum), L1tagSize(L1tagSize), L2tagSize(L2tagSize)
+    L1BlocksNum(L1BlocksNum), L2BlocksNum(L2BlocksNum),  L1tagSize(L1tagSize), L2tagSize(L2tagSize), L1SetsNum(L1SetsNum), L2SetsNum(L2SetsNum)
     {
         if(L1SetsNum > 0) L1 = new std::list<block>[L1SetsNum];
 
@@ -93,9 +94,11 @@ public:
 
         cout << "I am trying to get set from address: " << address << endl;
         int set = address >> BSize;
-        int setBits = 32 - ((isL1 ? L1tagSize : L2tagSize) + BSize);
-        int mask = pow(2, setBits) - 1;
-        set = set && mask;
+        int mask_size = isL1 ? L1SetsNum : L2SetsNum;
+        int mask = pow(2, mask_size);
+        set = set % mask;
+        //int mask = pow(2, setBits) - 1;
+        //set = set && mask;
         cout << "The set I got is: " << set << endl;
         return set;
 
@@ -364,7 +367,7 @@ int main(int argc, char **argv) {
 
     cout << "L1Ways: " << L1Ways << ", L2Ways: " << L2Ways << ", L2SetsNum: " << L1SetsNum << ", L2SetsNum: " << L2SetsNum << endl;
 
-    cache Cache(L1Cyc, L2Cyc, MemCyc, BSize, L1SetsNum, L1Ways, L2SetsNum, L2Ways, L1BlocksNum, L2BlocksNum, L1tagSize, L2tagSize);
+    cache Cache(L1Cyc, L2Cyc, MemCyc, BSize, L1Ways, L2Ways, L1BlocksNum, L2BlocksNum, L1tagSize, L2tagSize, L1SetsNum, L2SetsNum);
 
     int cmdCounter = 0;
     while (getline(file, line)) {
