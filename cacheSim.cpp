@@ -113,7 +113,7 @@ public:
 
     }
 
-    void addBlock(unsigned int address, unsigned int tag, unsigned int set, bool isL1) {
+    void addBlock(unsigned int address, unsigned int tag, unsigned int set, bool isL1,bool isWrite) {
 
         std::list<block>* blockList = isL1 ? L1 : L2;
 
@@ -124,7 +124,7 @@ public:
                 it->address = address;
                 it->tag = tag;
                 it->validBit = true;
-                useBlock(tag, set, isL1);
+                useBlock(tag, set, isL1, isWrite);
                 return;
             }
         }
@@ -140,7 +140,7 @@ public:
         it->address = address;
         it->tag = tag;
         it->validBit = true;
-        useBlock(tag, set, isL1);
+        useBlock(tag, set, isL1,isWrite);
     }
 
 
@@ -159,7 +159,7 @@ public:
         totalTime += L1Cyc;
         if(isBlockInCache(tagL1, setL1, true)) { // if hit in L1
             cout << "hit L1" << endl;
-            useBlock(tagL1, setL1, true);
+            useBlock(tagL1, setL1, true, false);
         }
         else { // if miss on L1
             cout << "miss L1" << endl;
@@ -174,16 +174,16 @@ public:
 
                 cout << "hit L2" << endl;
 
-                useBlock(tagL2, setL2, false);
-                addBlock(address, tagL1, setL1, true); // bring to L1 also
+                useBlock(tagL2, setL2, false,false);
+                addBlock(address, tagL1, setL1, true, false); // bring to L1 also
                 /// maybe need another L1 cycle? for bringing from L2 to L1
             }
             else { // if miss on L2
                 cout << "miss L2" << endl;
                 L2misses++;
                 totalTime += MemCyc;
-                addBlock(address, tagL2, setL2, false); // bring block from mem to L2
-                addBlock(address, tagL1, setL1, true); // bring block from mem to L1
+                addBlock(address, tagL2, setL2, false, false); // bring block from mem to L2
+                addBlock(address, tagL1, setL1, true, false); // bring block from mem to L1
             }
         }
 
@@ -202,7 +202,7 @@ public:
         L1access++;
         totalTime += L1Cyc;
         if(isBlockInCache(tagL1, setL1, true)) { // if hit in L1
-            useBlock(tagL1, setL1, true);
+            useBlock(tagL1, setL1, true, true);
             cout << "hit L1" << endl;
         }
         else { // if miss on L1
@@ -215,21 +215,21 @@ public:
             if(isBlockInCache(tagL2, setL2, false)) { // if hit in L2
                 cout << "hit L2" << endl;
 
-                useBlock(tagL2, setL2, false);
-                if(writeAlloc) addBlock(address, tagL1, setL1, true); // bring to L1 also
+                useBlock(tagL2, setL2, false, true);
+                if(writeAlloc) addBlock(address, tagL1, setL1, true, true); // bring to L1 also
             }
             else { // if miss on L2
                 cout << "miss L2" << endl;
 
                 L2misses++;
                 totalTime += MemCyc;
-                if(writeAlloc) addBlock(address, tagL2, setL2, false); // bring block from mem to L2
-                if(writeAlloc) addBlock(address, tagL1, setL1, true); // bring block from mem to L1
+                if(writeAlloc) addBlock(address, tagL2, setL2, false, true); // bring block from mem to L2
+                if(writeAlloc) addBlock(address, tagL1, setL1, true, true); // bring block from mem to L1
             }
         }
     }
 
-    void useBlock(unsigned int tag, unsigned int set, bool isL1) {
+    void useBlock(unsigned int tag, unsigned int set, bool isL1, bool isWrite) {
 
         std::list<block>* blockList = isL1 ? L1 : L2;
 
@@ -237,8 +237,9 @@ public:
             if(it->validBit && it->tag == tag) { // found the block we wanted
                 unsigned int way = it->way;
                 unsigned long int address = it->address;
+                bool previousDirtyBit = it->dirtyBit;
                 blockList[set].erase(it);
-                blockList[set].emplace_front(true, false, address, tag, way);
+                blockList[set].emplace_front(true, (isWrite || previousDirtyBit), address, tag, way);
                 return;
             }
         }
@@ -272,6 +273,12 @@ public:
 
         for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
             if(it->validBit && it->tag == tag) { // found the block we wanted
+                if((it->dirtyBit) && isL1 ) { // if it has a dirty bit we need to update the block in the lower level
+                    /// use the block in L2
+                    cout << "where is sara corner, where is she? \n" ;
+                    ;
+                }
+
                 it->tag = 0;
                 it->address = 0;
                 it->validBit = false;
