@@ -417,7 +417,7 @@ int main(int argc, char **argv) {
         for(int i = 0; i < L1SetsNum; i++){
             for (std::list<block>::iterator it = Cache.L1[i].begin(); it != Cache.L1[i].end(); it++) {
                 if(it->validBit){
-                    cout << it->tag << " " ;
+                    cout << it->dirtyBit << " " ;
                 }
                 else{
                     cout << "INVALID" << " " ;
@@ -431,7 +431,7 @@ int main(int argc, char **argv) {
         for(int i = 0; i < L2SetsNum; i++){
             for (std::list<block>::iterator it = Cache.L2[i].begin(); it != Cache.L2[i].end(); it++) {
                 if(it->validBit){
-                    cout << it->tag << " " ;
+                    cout << it->dirtyBit << " " ;
                 }
                 else{
                     cout << "INVALID" << " " ;
