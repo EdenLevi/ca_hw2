@@ -135,13 +135,15 @@ public:
 
         if(!isL1) { // if we are removing from L2, make sure block is removed from L1 (if exists there)
             removeBlock(getTagFromAddress(it->address, true), getSetFromAddress(it->address, true), true);
+
         }
 
         else{ // we in L1, if block has
             if(it->dirtyBit){
-                useBlock(getTagFromAddress(address,false), getSetFromAddress(address, false),false,false);
+                useBlock(getTagFromAddress(it->address,false), getSetFromAddress(it->address, false),false,false);
             }
         }
+        it->dirtyBit = isWrite;
         it->address = address;
         it->tag = tag;
         it->validBit = true;
@@ -404,7 +406,7 @@ int main(int argc, char **argv) {
 
         // DEBUG - remove this line
         cout << " (dec) " << num << endl;
-        if(num == 268435488){
+        if(num == 131072){
             cout << "debug stuff" << endl;
         }
         if(operation == 'r') Cache.read(num);
