@@ -271,7 +271,6 @@ public:
                 if((it->dirtyBit) && isL1 ) { // if it has a dirty bit we need to update the block in the lower level
                     /// use the block in L2
                     cout << "where is sara corner, where is she? \n" ;
-                    ;
                 }
 
                 it->tag = 0;
