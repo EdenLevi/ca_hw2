@@ -226,9 +226,9 @@ public:
             if(it->validBit && it->tag == tag) { // found the block we wanted
                 if((it->dirtyBit) && isL1 ) { // if it has a dirty bit we need to update the block in the lower level
                     /// use the block in L2
-                   // useBlock(getTagFromAddress(it->address,false), getSetFromAddress(it->address,false), false, true);
-                }  /// we were told we dont need to "use" a block in L2 if we update it due to deleting a dirty block
-                     /// from L1
+                    useBlock(getTagFromAddress(it->address,false), getSetFromAddress(it->address,false), false, true);
+                }  /// not sure if we dont need to "use" a block in L2 if we update it due to deleting a dirty block
+                   /// from L1
                 it->tag = 0;
                 it->address = 0;
                 it->validBit = false;
