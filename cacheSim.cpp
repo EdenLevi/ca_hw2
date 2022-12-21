@@ -147,7 +147,6 @@ public:
 
                 useBlock(tagL2, setL2, false,false);
                 addBlock(address, tagL1, setL1, true, false); // bring to L1 also
-                /// maybe need another L1 cycle? for bringing from L2 to L1
             }
             else { // if miss on L2
                 L2misses++;
@@ -225,9 +224,10 @@ public:
 
         for (std::list<block>::iterator it = blockList[set].begin(); it != blockList[set].end(); it++) {
             if(it->validBit && it->tag == tag) { // found the block we wanted
-                /*if((it->dirtyBit) && isL1 ) { // if it has a dirty bit we need to update the block in the lower level
+                if((it->dirtyBit) && isL1 ) { // if it has a dirty bit we need to update the block in the lower level
                     /// use the block in L2
-                } */ /// we were told we dont need to "use" a block in L2 if we update it due to deleting a dirty block
+                   // useBlock(getTagFromAddress(it->address,false), getSetFromAddress(it->address,false), false, true);
+                }  /// we were told we dont need to "use" a block in L2 if we update it due to deleting a dirty block
                      /// from L1
                 it->tag = 0;
                 it->address = 0;
